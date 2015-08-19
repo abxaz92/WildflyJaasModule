@@ -10,17 +10,34 @@ import javax.security.auth.Subject;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.login.LoginException;
 
+import org.bson.types.ObjectId;
 import org.jboss.security.SimpleGroup;
 import org.jboss.security.SimplePrincipal;
 import org.jboss.security.auth.spi.UsernamePasswordLoginModule;
 
-import com.mongodb.*;
+import com.mongodb.BasicDBList;
+import com.mongodb.BasicDBObject;
+import com.mongodb.BasicDBObjectBuilder;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
 
 public class MongoLoginModule extends UsernamePasswordLoginModule {
-	String userGroup;
+	List<ObjectId> userGroup;
+	String database;
+	String username;
+	String password;
 
-	public void initialize(Subject subject, CallbackHandler callbackHandler, Map sharedState, Map options) {
+	public void initialize(Subject subject, CallbackHandler callbackHandler,
+			Map sharedState, Map options) {
 		super.initialize(subject, callbackHandler, sharedState, options);
+		database = (String) options.get("database");
+		username = (String) options.get("username");
+		password = (String) options.get("password");
 	}
 
 	/**
@@ -29,7 +46,8 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 	 */
 	@Override
 	protected String getUsersPassword() throws LoginException {
-		System.out.format("MyLoginModule: authenticating user '%s'\n", getUsername());
+		System.out.format("MyLoginModule: authenticating user '%s'\n",
+				getUsername());
 		String password = super.getUsername();
 		password = password.toUpperCase();
 		return password;
@@ -40,34 +58,26 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 	 * or if you need to perform some conversion on them.
 	 */
 	@Override
-	protected boolean validatePassword(String inputPassword, String expectedPassword) {
+	protected boolean validatePassword(String inputPassword,
+			String expectedPassword) {
 
-		String encryptedInputPassword = (inputPassword == null) ? null : inputPassword.toUpperCase();
-		System.out.format("Validating that (encrypted) input psw '%s' equals to (encrypted) '%s'\n",
-				encryptedInputPassword, expectedPassword);
-		MongoClient mongoClient = null;
-		try {
-			List<ServerAddress> seed = new ArrayList<ServerAddress>();
-			seed.add(new ServerAddress("db"));
-			List<MongoCredential> credentials = new ArrayList<MongoCredential>();
-			credentials.add(MongoCredential.createCredential("taxi", "taxi", "Q4862513".toCharArray()));
-			mongoClient = new MongoClient(seed, credentials);
-		} catch (UnknownHostException e) {
-			e.printStackTrace();
-		}
-		DB db = mongoClient.getDB("taxi");
-		DBCollection coll = db.getCollection("user");
+		String encryptedInputPassword = (inputPassword == null) ? null
+				: inputPassword.toUpperCase();
+		System.out
+				.format("Validating that (encrypted) input psw '%s' equals to (encrypted) '%s'\n",
+						encryptedInputPassword, expectedPassword);
+
 		BasicDBObject query = new BasicDBObject("name", getUsername());
-
-		DBCursor cursor = coll.find(query);
-
+		DBCursor cursor = getCollectionInstance("user").find(query);
 		try {
 			if (cursor.hasNext()) {
-				// User found in DB
 				BasicDBObject obj = (BasicDBObject) cursor.next();
-
 				String password = (String) obj.get("password");
-				userGroup = (String) obj.get("group");
+				BasicDBList dbList = (BasicDBList) obj.get("groupIds");
+				userGroup = new ArrayList<ObjectId>();
+				for (int i = 0; i < dbList.size(); i++) {
+					userGroup.add(new ObjectId((String) dbList.get(i)));
+				}
 				if (inputPassword.equals(password)) {
 					System.out.println("Password matching");
 					return true;
@@ -88,11 +98,48 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 		SimpleGroup group = new SimpleGroup("Roles");
 		try {
 			// userGroup picked up by MongoDB Cursor earlier
-			group.addMember(new SimplePrincipal(userGroup));
+			DBObject query = BasicDBObjectBuilder.start().push("_id")
+					.add("$in", userGroup).get();
+			DBCursor cursor = getCollectionInstance("usergroup").find(query);
+			try {
+				if (cursor.hasNext()) {
+					// User found in DB
+					BasicDBObject obj = (BasicDBObject) cursor.next();
+					BasicDBList dbList = (BasicDBList) obj.get("permissions");
+					System.out.println(dbList);
+					for (int i = 0; i < dbList.size(); i++) {
+						group.addMember(new SimplePrincipal((String) dbList
+								.get(i)));
+					}
+				} else {
+					return new Group[] {};
+				}
+			} finally {
+				cursor.close();
+			}
+
+			// group.addMember(new SimplePrincipal(userGroup));
 		} catch (Exception e) {
-			throw new LoginException("Failed to create group member for " + group);
+			throw new LoginException("Failed to create group member for "
+					+ group);
 		}
 		return new Group[] { group };
 	}
 
+	private DBCollection getCollectionInstance(String collectionName) {
+		MongoClient mongoClient = null;
+		try {
+			List<ServerAddress> seed = new ArrayList<ServerAddress>();
+			seed.add(new ServerAddress("db"));
+			List<MongoCredential> credentials = new ArrayList<MongoCredential>();
+			credentials.add(MongoCredential.createCredential(username,
+					database, password.toCharArray()));
+			mongoClient = new MongoClient(seed, credentials);
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		}
+		DB db = mongoClient.getDB(database);
+		DBCollection coll = db.getCollection(collectionName);
+		return coll;
+	}
 }
