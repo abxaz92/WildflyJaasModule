@@ -5,6 +5,7 @@ import java.security.acl.Group;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import javax.security.auth.Subject;
 import javax.security.auth.callback.CallbackHandler;
@@ -27,6 +28,7 @@ import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 
 public class MongoLoginModule extends UsernamePasswordLoginModule {
+	public static final Logger LOG = Logger.getLogger("LoginModule");
 	List<ObjectId> userGroup;
 	String database;
 	String username;
@@ -46,8 +48,7 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 	 */
 	@Override
 	protected String getUsersPassword() throws LoginException {
-		System.out.format("MyLoginModule: authenticating user '%s'\n",
-				getUsername());
+		LOG.info("MyLoginModule: authenticating user " + getUsername());
 		String password = super.getUsername();
 		password = password.toUpperCase();
 		return password;
@@ -63,10 +64,6 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 
 		String encryptedInputPassword = (inputPassword == null) ? null
 				: inputPassword.toUpperCase();
-		System.out
-				.format("Validating that (encrypted) input psw '%s' equals to (encrypted) '%s'\n",
-						encryptedInputPassword, expectedPassword);
-
 		BasicDBObject query = new BasicDBObject("name", getUsername());
 		DBCursor cursor = getCollectionInstance("user").find(query);
 		try {
@@ -79,11 +76,11 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 					userGroup.add(new ObjectId((String) dbList.get(i)));
 				}
 				if (inputPassword.equals(password)) {
-					System.out.println("Password matching");
+					LOG.info("Password matching");
 					return true;
 				}
 			} else {
-				System.out.println("User not found!");
+				LOG.info("User not found!");
 				return false;
 			}
 		} finally {
@@ -102,18 +99,17 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 					.add("$in", userGroup).get();
 			DBCursor cursor = getCollectionInstance("usergroup").find(query);
 			try {
-				if (cursor.hasNext()) {
+				while (cursor.hasNext()) {
 					// User found in DB
 					BasicDBObject obj = (BasicDBObject) cursor.next();
 					BasicDBList dbList = (BasicDBList) obj.get("permissions");
-					System.out.println(dbList);
 					for (int i = 0; i < dbList.size(); i++) {
 						group.addMember(new SimplePrincipal((String) dbList
 								.get(i)));
 					}
-				} else {
-					return new Group[] {};
 				}
+			} catch (Exception e) {
+				e.printStackTrace();
 			} finally {
 				cursor.close();
 			}
