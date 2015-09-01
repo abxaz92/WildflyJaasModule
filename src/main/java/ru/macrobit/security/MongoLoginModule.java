@@ -103,13 +103,15 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 					// User found in DB
 					BasicDBObject obj = (BasicDBObject) cursor.next();
 					BasicDBList dbList = (BasicDBList) obj.get("permissions");
-					for (int i = 0; i < dbList.size(); i++) {
-						group.addMember(new SimplePrincipal((String) dbList
-								.get(i)));
+					if (dbList != null) {
+						for (int i = 0; i < dbList.size(); i++) {
+							group.addMember(new SimplePrincipal((String) dbList
+									.get(i)));
+						}
 					}
 				}
 			} catch (Exception e) {
-				e.printStackTrace();
+				LOG.info(e.getMessage());
 			} finally {
 				cursor.close();
 			}
