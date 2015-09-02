@@ -66,6 +66,9 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 				: inputPassword.toUpperCase();
 		BasicDBObject query = new BasicDBObject("name", getUsername());
 		DBCursor cursor = getCollectionInstance("user").find(query);
+		System.out
+				.format("Validating that (encrypted) input psw '%s' equals to (encrypted) '%s'\n",
+						encryptedInputPassword, expectedPassword);
 		try {
 			if (cursor.hasNext()) {
 				BasicDBObject obj = (BasicDBObject) cursor.next();
@@ -73,6 +76,7 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 				BasicDBList dbList = (BasicDBList) obj.get("groupIds");
 				userGroup = new ArrayList<ObjectId>();
 				for (int i = 0; i < dbList.size(); i++) {
+					LOG.info(new ObjectId((String) dbList.get(i)).toString());
 					userGroup.add(new ObjectId((String) dbList.get(i)));
 				}
 				if (inputPassword.equals(password)) {
@@ -83,6 +87,9 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 				LOG.info("User not found!");
 				return false;
 			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
 		} finally {
 			cursor.close();
 		}
