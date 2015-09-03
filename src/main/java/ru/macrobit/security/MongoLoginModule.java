@@ -35,7 +35,7 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 	String password;
 
 	public void initialize(Subject subject, CallbackHandler callbackHandler,
-			Map sharedState, Map options) {
+			Map<String,?> sharedState, Map<String,?> options) {
 		super.initialize(subject, callbackHandler, sharedState, options);
 		database = (String) options.get("database");
 		username = (String) options.get("username");
@@ -76,7 +76,6 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 				BasicDBList dbList = (BasicDBList) obj.get("groupIds");
 				userGroup = new ArrayList<ObjectId>();
 				for (int i = 0; i < dbList.size(); i++) {
-					LOG.info(new ObjectId((String) dbList.get(i)).toString());
 					userGroup.add(new ObjectId((String) dbList.get(i)));
 				}
 				if (inputPassword.equals(password)) {
