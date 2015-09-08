@@ -107,6 +107,7 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
+			} finally {
 				cursor.close();
 			}
 		} catch (Exception e) {
@@ -147,8 +148,11 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 					}
 				}
 			} catch (Exception e) {
+				e.printStackTrace();
+			} finally {
 				cursor.close();
 			}
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
