@@ -29,10 +29,10 @@ import com.mongodb.ServerAddress;
 
 public class MongoLoginModule extends UsernamePasswordLoginModule {
 	public static final Logger LOG = Logger.getLogger("LoginModule");
-	List<ObjectId> userGroup;
-	String database;
-	String username;
-	String password;
+	java.util.List<ObjectId> userGroup;
+	java.lang.String database;
+	java.lang.String username;
+	java.lang.String password;
 
 	public void initialize(Subject subject, CallbackHandler callbackHandler,
 			Map<String,?> sharedState, Map<String,?> options) {
@@ -48,7 +48,6 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 	 */
 	@Override
 	protected String getUsersPassword() throws LoginException {
-		LOG.info("MyLoginModule: authenticating user " + getUsername());
 		String password = super.getUsername();
 		password = password.toUpperCase();
 		return password;
@@ -73,6 +72,10 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 			if (cursor.hasNext()) {
 				BasicDBObject obj = (BasicDBObject) cursor.next();
 				String password = (String) obj.get("password");
+				boolean unlock = obj.getBoolean("unlock");
+				if(!unlock)
+					throw new LoginException("user account is locked");
+					
 				BasicDBList dbList = (BasicDBList) obj.get("groupIds");
 				userGroup = new ArrayList<ObjectId>();
 				for (int i = 0; i < dbList.size(); i++) {
