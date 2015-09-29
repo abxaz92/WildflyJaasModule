@@ -21,9 +21,6 @@ import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DB;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoCredential;
-import com.mongodb.ServerAddress;
 
 public class MongoLoginModule extends UsernamePasswordLoginModule {
 	public static final Logger LOG = Logger.getLogger("LoginModule");
@@ -80,19 +77,13 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 
 	private static final String SERVIER_ADDR = "db";
 	private static final String PERMISSIONS = "permissions";
-	
+
 	@Override
 	protected Group[] getRoleSets() throws LoginException {
 		SimpleGroup group = new SimpleGroup("Roles");
-		MongoClient mongoClient = null;
 		try {
-			List<ServerAddress> seed = new ArrayList<ServerAddress>();
-			seed.add(new ServerAddress(SERVIER_ADDR));
-			List<MongoCredential> credentials = new ArrayList<MongoCredential>();
-			credentials.add(MongoCredential.createCredential(username,
-					database, password.toCharArray()));
-			mongoClient = new MongoClient(seed, credentials);
-			DB db = mongoClient.getDB(database);
+			DB db = ConnectionProvider.getConnection(SERVIER_ADDR, username,
+					password, database).getDB(database);
 			DBObject query = BasicDBObjectBuilder.start().push("_id")
 					.add("$in", userGroup).get();
 			DBCursor cursor = null;
@@ -118,8 +109,6 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 			e.printStackTrace();
 			throw new LoginException("Failed to create group member for "
 					+ group);
-		} finally {
-			mongoClient.close();
 		}
 		return new Group[] { group };
 	}
@@ -128,19 +117,12 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 	private static final String COLLECTION_USERGROUP = "usergroup";
 	private static final String PASSWORD = "password";
 	private static final String GROUP_IDS = "groupIds";
-	
 
 	private String doFindUser() {
-		MongoClient mongoClient = null;
 		String userPassword = null;
 		try {
-			List<ServerAddress> seed = new ArrayList<ServerAddress>();
-			seed.add(new ServerAddress(SERVIER_ADDR));
-			List<MongoCredential> credentials = new ArrayList<MongoCredential>();
-			credentials.add(MongoCredential.createCredential(username,
-					database, password.toCharArray()));
-			mongoClient = new MongoClient(seed, credentials);
-			DB db = mongoClient.getDB(database);
+			DB db = ConnectionProvider.getConnection(SERVIER_ADDR, username,
+					password, database).getDB(database);
 			BasicDBObject query = new BasicDBObject("name", getUsername());
 			DBCursor cursor = null;
 			try {
@@ -149,7 +131,7 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 					BasicDBObject obj = (BasicDBObject) cursor.next();
 					userPassword = (String) obj.get(PASSWORD);
 					boolean unlock = obj.getBoolean("unlock");
-					if(!unlock)
+					if (!unlock)
 						throw new LoginException("user account is locked");
 					BasicDBList dbList = (BasicDBList) obj.get(GROUP_IDS);
 					userGroup = new ArrayList<ObjectId>();
@@ -165,8 +147,6 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 
 		} catch (Exception e) {
 			e.printStackTrace();
-		} finally {
-			mongoClient.close();
 		}
 		return userPassword;
 	}
