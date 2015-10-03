@@ -29,8 +29,16 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 	public String username;
 	public String password;
 
+	private static final String DATABASE = "database";
+	private static final String USERNAME = "username";
+	private static final String PASSWD = "password";
+
+	private static final String[] ALL_VALID_OPTIONS = { DATABASE, USERNAME,
+			PASSWD };
+
 	public void initialize(Subject subject, CallbackHandler callbackHandler,
 			Map<String, ?> sharedState, Map<String, ?> options) {
+		addValidOptions(ALL_VALID_OPTIONS);
 		super.initialize(subject, callbackHandler, sharedState, options);
 		database = (String) options.get("database");
 		username = (String) options.get("username");
@@ -97,6 +105,7 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 						for (int i = 0; i < dbList.size(); i++) {
 							group.addMember(new SimplePrincipal((String) dbList
 									.get(i)));
+							LOG.info((String) dbList.get(i));
 						}
 					}
 				}
