@@ -63,21 +63,16 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 	@Override
 	protected boolean validatePassword(String inputPassword,
 			String expectedPassword) {
-
-		String encryptedInputPassword = (inputPassword == null) ? null
-				: inputPassword.toUpperCase();
-		System.out
-				.format("Validating that (encrypted) input psw '%s' equals to (encrypted) '%s'\n",
-						encryptedInputPassword, expectedPassword);
-		/*
-		 * System.out .format(
-		 * "Validating that (encrypted) input psw '%s' equals to (encrypted) '%s'\n"
-		 * , encryptedInputPassword, expectedPassword);
-		 */
-		if (inputPassword.equals(doFindUser())) {
-			LOG.info(new StringBuilder(expectedPassword).append(
-					" success authentificated").toString());
-			return true;
+		try {
+			LOG.info(new StringBuilder(expectedPassword).append(" ")
+					.append(inputPassword).toString());
+			if (inputPassword.equals(doFindUser())) {
+				LOG.info(new StringBuilder(expectedPassword).append(
+						" success authentificated").toString());
+				return true;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
 		return false;
@@ -105,7 +100,6 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 						for (int i = 0; i < dbList.size(); i++) {
 							group.addMember(new SimplePrincipal((String) dbList
 									.get(i)));
-							LOG.info((String) dbList.get(i));
 						}
 					}
 				}
@@ -133,15 +127,13 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 			DB db = ConnectionProvider.getConnection(SERVIER_ADDR, username,
 					password, database).getDB(database);
 			BasicDBObject query = new BasicDBObject("name", getUsername());
+			query.append("unlock", true);
 			DBCursor cursor = null;
 			try {
 				cursor = db.getCollection(COLLECTION_USER).find(query);
 				if (cursor.hasNext()) {
 					BasicDBObject obj = (BasicDBObject) cursor.next();
 					userPassword = (String) obj.get(PASSWORD);
-					boolean unlock = obj.getBoolean("unlock");
-					if (!unlock)
-						throw new LoginException("user account is locked");
 					BasicDBList dbList = (BasicDBList) obj.get(GROUP_IDS);
 					userGroup = new ArrayList<ObjectId>();
 					for (int i = 0; i < dbList.size(); i++) {
@@ -159,16 +151,4 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 		}
 		return userPassword;
 	}
-
-	/*
-	 * private DBCollection getCollectionInstance(String collectionName) {
-	 * MongoClient mongoClient = null; try { List<ServerAddress> seed = new
-	 * ArrayList<ServerAddress>(); seed.add(new ServerAddress("db"));
-	 * List<MongoCredential> credentials = new ArrayList<MongoCredential>();
-	 * credentials.add(MongoCredential.createCredential(username, database,
-	 * password.toCharArray())); mongoClient = new MongoClient(seed,
-	 * credentials); } catch (UnknownHostException e) { e.printStackTrace(); }
-	 * DB db = mongoClient.getDB(database); DBCollection coll =
-	 * db.getCollection(collectionName); return coll; }
-	 */
 }
