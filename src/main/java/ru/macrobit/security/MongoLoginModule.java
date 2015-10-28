@@ -38,6 +38,7 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 
 	public void initialize(Subject subject, CallbackHandler callbackHandler,
 			Map<String, ?> sharedState, Map<String, ?> options) {
+		LOG.info("1");
 		addValidOptions(ALL_VALID_OPTIONS);
 		super.initialize(subject, callbackHandler, sharedState, options);
 		database = (String) options.get("database");
@@ -145,7 +146,6 @@ public class MongoLoginModule extends UsernamePasswordLoginModule {
 			} finally {
 				cursor.close();
 			}
-
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
